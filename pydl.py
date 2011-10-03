@@ -35,17 +35,39 @@ and specifying where to save them, are as simple as possible. Let's get to it!""
 print('Be warned! File Looping has been implemented but is experimental.')
 print('Downloading large groups of files could lead to RAM abuse.')
 # The function that actually gets stuff
-def getDownload(urlToGetFile, fileNameToSave):  # Grab the file(s)
-    urllib.urlretrieve(urlToGetFile, fileNameToSave)
-# This looks redundant now, but just wait... :)
-def getSpecialDownload(urlToGetFile, fileNameToSave):
-    urllib.urlretrieve(urlToGetFile, fileNameToSave)
-    # Placeholder for progressbar:
-    #widgets = ['Overall Progress: ', Percentage(), ' ',
-    #               Bar(marker='#',left='[',right=']'),
-    #               ' ', ETA(), ' ', FileTransferSpeed()]
-    #pbar = ProgressBar(widgets=widgets, maxval=nl)
-    #pbar.start()
+def getDownload(urlToGetFile, fileNameToSave, specialDownload=False):  # Grab the file(s)
+
+    if not specialDownload:
+        filelen=0
+        data=str(urllib2.urlopen(urlToGetFile).info())
+        data=data[data.find("Content-Length"):]
+        data=data[16:data.find("\r")]
+        filelen+=int(data)
+        
+        # Placeholder for progressbar:
+        widgets = ['Download Progress: ', Percentage(), ' ',
+                       Bar(marker='#',left='[',right=']'),
+                       ' ', ETA(), ' ', FileTransferSpeed()]
+        pbar = ProgressBar(widgets=widgets, maxval=filelen)
+        pbar.start()
+        urllib.urlretrieve(urlToGetFile, fileNameToSave)
+        pbar.finish()
+    else:
+        urllib.urlretrieve(urlToGetFile, fileNameToSave)
+
+# The function that sums the lengths of all files to download
+# This function avoid to download all files to get lengths but it's take quite time to get few files length
+def getOverallLength(fileNameUrls):
+    fi = fileinput.input(fileNameUrls)
+    overallLength=0
+    
+    for line in fi:
+        data=str(urllib2.urlopen(line[:-1]).info())
+        data=data[data.find("Content-Length"):]
+        data=data[16:data.find("\r")]
+        overallLength+=int(data)
+        
+    return overallLength
 
 # The function that sums the lengths of all files to download
 # This function avoid to download all files to get lengths but it's take quite time to get few files length
@@ -65,13 +87,23 @@ def fileLoopCheck():
     specialDownload = raw_input('Do you need to import a file with links?(y/n): ')
     if specialDownload == 'n':
         urlToGetFile = raw_input('Please enter the download URL: ')
+
+        fileNameToSave = raw_input('Enter the desired filename: ')
+        getDownload(urlToGetFile,fileNameToSave)
+    elif specialDownload == 'y':
+        fileNameUrls = raw_input('Enter the filename (with path) that contains URLs: ')
+        baseDir = raw_input('Enter the directory where to download files: ')
+        
+        overallLength=getOverallLength(fileNameUrls) # getting overall length files size
+        
         fileNameToSave = raw_input('Enter the desired path and filename: ')
         getDownload()
     elif specialDownload == 'y':
         fileNameUrls = raw_input('Enter the filename (with path) that contains URLs: ')
         baseDir = raw_input('Enter the directory where you want the files saved: ')
+
         # Define how to handle pathing, default to preceding '/'
-        if not baseDir.endswith("/") and baseDir != '':
+        if not baseDir.endswith("/") and baseDir != "":
             baseDir+="/"
         # Grab the file and iterate over each line, this is not yet smart enough
         # to discern between an actual url and erroneous text, so don't have anything
@@ -93,7 +125,7 @@ def fileLoopCheck():
         for line in fi:
             urlToGetFile=line[:-1]
             fileNameToSave=baseDir+urlToGetFile[urlToGetFile.rfind('/')+1:]
-            getSpecialDownload(urlToGetFile, fileNameToSave)
+            getDownload(urlToGetFile, fileNameToSave,True)
             cl+=1
             pbar.update(overallLength/nl*cl)
         pbar.finish()
