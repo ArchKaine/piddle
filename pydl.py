@@ -28,8 +28,8 @@ import fileinput
 from progressbar import *
 
 #Introduce ourselves
-print("""Hello! I am going to ensure that downloading your file, renaming it,
-and specifying where to save it, are as simple as possible. Let's get to it!""")
+print("""Hello! I am going to ensure that downloading your files, renaming them,
+and specifying where to save them, are as simple as possible. Let's get to it!""")
 
 # Warn the user about non-existent feature
 print('Be warned! File Looping has been implemented but is experimental.')
@@ -69,10 +69,25 @@ def getOverallLength(fileNameUrls):
         
     return overallLength
 
+# The function that sums the lengths of all files to download
+# This function avoid to download all files to get lengths but it's take quite time to get few files length
+def getOverallLength(fileNameUrls):
+    fi = fileinput.input(fileNameUrls)
+    overallLength=0
+
+    for line in fi:
+        data=str(urllib2.urlopen(line[:-1]).info())
+        data=data[data.find("Content-Length"):]
+        data=data[16:data.find("\r")]
+        overallLength+=int(data)
+
+    return overallLength
+
 def fileLoopCheck():
     specialDownload = raw_input('Do you need to import a file with links?(y/n): ')
     if specialDownload == 'n':
         urlToGetFile = raw_input('Please enter the download URL: ')
+
         fileNameToSave = raw_input('Enter the desired filename: ')
         getDownload(urlToGetFile,fileNameToSave)
     elif specialDownload == 'y':
@@ -81,6 +96,12 @@ def fileLoopCheck():
         
         overallLength=getOverallLength(fileNameUrls) # getting overall length files size
         
+        fileNameToSave = raw_input('Enter the desired path and filename: ')
+        getDownload()
+    elif specialDownload == 'y':
+        fileNameUrls = raw_input('Enter the filename (with path) that contains URLs: ')
+        baseDir = raw_input('Enter the directory where you want the files saved: ')
+
         # Define how to handle pathing, default to preceding '/'
         if not baseDir.endswith("/") and baseDir != "":
             baseDir+="/"
