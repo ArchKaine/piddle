@@ -35,15 +35,25 @@ and specifying where to save it, are as simple as possible. Let's get to it!""")
 print('Be warned! File Looping has been implemented but is experimental.')
 print('Downloading large groups of files could lead to RAM abuse.')
 # The function that actually gets stuff
-def getDownload(urlToGetFile, fileNameToSave):  # Grab the file(s)
-    urllib.urlretrieve(urlToGetFile, fileNameToSave)
+def getDownload(urlToGetFile, fileNameToSave, specialDownload=False):  # Grab the file(s)
 
-    # Placeholder for progressbar:
-    #widgets = ['Overall Progress: ', Percentage(), ' ',
-    #               Bar(marker='#',left='[',right=']'),
-    #               ' ', ETA(), ' ', FileTransferSpeed()]
-    #pbar = ProgressBar(widgets=widgets, maxval=nl)
-    #pbar.start()
+    if not specialDownload:
+        filelen=0
+        data=str(urllib2.urlopen(urlToGetFile).info())
+        data=data[data.find("Content-Length"):]
+        data=data[16:data.find("\r")]
+        filelen+=int(data)
+        
+        # Placeholder for progressbar:
+        widgets = ['Download Progress: ', Percentage(), ' ',
+                       Bar(marker='#',left='[',right=']'),
+                       ' ', ETA(), ' ', FileTransferSpeed()]
+        pbar = ProgressBar(widgets=widgets, maxval=filelen)
+        pbar.start()
+        urllib.urlretrieve(urlToGetFile, fileNameToSave)
+        pbar.finish()
+    else:
+        urllib.urlretrieve(urlToGetFile, fileNameToSave)
 
 # The function that sums the lengths of all files to download
 # This function avoid to download all files to get lengths but it's take quite time to get few files length
@@ -64,7 +74,7 @@ def fileLoopCheck():
     if specialDownload == 'n':
         urlToGetFile = raw_input('Please enter the download URL: ')
         fileNameToSave = raw_input('Enter the desired filename: ')
-        getDownload()
+        getDownload(urlToGetFile,fileNameToSave)
     elif specialDownload == 'y':
         fileNameUrls = raw_input('Enter the filename (with path) that contains URLs: ')
         baseDir = raw_input('Enter the directory where to download files: ')
@@ -94,7 +104,7 @@ def fileLoopCheck():
         for line in fi:
             urlToGetFile=line[:-1]
             fileNameToSave=baseDir+urlToGetFile[urlToGetFile.rfind('/')+1:]
-            getDownload(urlToGetFile, fileNameToSave)
+            getDownload(urlToGetFile, fileNameToSave,True)
             cl+=1
             pbar.update(overallLength/nl*cl)
         pbar.finish()
