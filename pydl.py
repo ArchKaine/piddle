@@ -26,80 +26,122 @@ import urllib
 import urllib2
 import fileinput
 from progressbar import *
+from decimal import *
 
-#Introduce ourselves
-print("""Hello! I am going to ensure that downloading your files, renaming them,
-and specifying where to save them, are as simple as possible. Let's get to it!""")
+# Now we are going to define the actual program API, these are the functions
+# that are going to actually do work.  TODO: This still feels very "scripty" It
+# needs to be cleaned up.
 
-# Warn the user about non-existent feature
-print('Be warned! File Looping has been implemented but is experimental.')
-print('Downloading large groups of files could lead to RAM abuse.')
+
+# A function to provide a clean exit from anywhere in the program
+def cleanExit():
+    print ("Exiting now!")
+    exit(0)
+
 # The function that actually gets stuff
-def getDownload(urlToGetFile, fileNameToSave):  # Grab the file(s)
+def getRegDownload(urlToGetFile, fileNameToSave):  # Grab the file(s)
     urllib.urlretrieve(urlToGetFile, fileNameToSave)
+
 # This looks redundant now, but just wait... :)
-def getSpecialDownload(urlToGetFile, fileNameToSave):
-    urllib.urlretrieve(urlToGetFile, fileNameToSave)
-    # Placeholder for progressbar:
-    #widgets = ['Overall Progress: ', Percentage(), ' ',
-    #               Bar(marker='#',left='[',right=']'),
-    #               ' ', ETA(), ' ', FileTransferSpeed()]
-    #pbar = ProgressBar(widgets=widgets, maxval=nl)
-    #pbar.start()
+def getSpecialDownload(urlToGetFile, baseDir):
+    urllib.urlretrieve(urlToGetFile, baseDir)
 
-# The function that sums the lengths of all files to download
-# This function avoid to download all files to get lengths but it's take quite time to get few files length
-def getOverallLength(fileNameUrls):
+def getOverallLength(fileNameUrls, baseDir):
     fi = fileinput.input(fileNameUrls)
-    overallLength=0
-
+    overallLength = 0
     for line in fi:
-        data=str(urllib2.urlopen(line[:-1]).info())
-        data=data[data.find("Content-Length"):]
-        data=data[16:data.find("\r")]
-        overallLength+=int(data)
+        data = str(urllib2.urlopen(line).info())
+        data = data[data.find('Content-Length'):]
+        data = data[16:data.find('\r')]
+        overallLength += int(data)
+    specialDownloadWork(fileNameUrls, baseDir, overallLength)
 
-    return overallLength
+def moreToDoQuery():
+    moreDownloads = raw_input('Do you want to download more files?(y/n/q): ')
+    if moreDownloads == 'n'\
+    or moreDownloads == 'N'\
+    or moreDownloads == 'q'\
+    or moreDownloads == 'Q':
+        print('Until next time!')
+        cleanExit()
+    elif moreDownloads == 'y' or moreDownloads == 'Y':
+        print("""Do you need to loop over another file? Or do you only need to
+        download from a single link?""")
+        moreDownloadType = raw_input("File Loop = 'loop', Single Link = 'single', or 'Q' to Quit: ")
+        if moreDownloadType == 'loop' or moreDownloadType == 'l':
+            specialDownloadInfo()
+        elif moreDownloadType == 'single' or moreDownloadType == 's':
+            regDownloadInfo()
+        elif moreDownloadType == 'Q' or moreDownloadType == 'q':
+            cleanExit()
+        else:
+            print('Invalid response recorded, please try again.')
+            moreToDoQuery()
+    else:
+        print("Let's try that again...")
+        moreToDoQuery()
+
+def specialDownloadWork(fileNameUrls, baseDir, overallLength):
+    if not baseDir.endswith('/') and baseDir != '':
+        baseDir += '/'
+    fi = fileinput.input(fileNameUrls)
+    nl = 0
+    for line in fi:
+        nl += 1
+    fi = fileinput.input(fileNameUrls)
+    cl = 0
+    widgets = ['Overall Progress: ', Percentage(), ' ',
+                Bar(marker = '>', left = '[', right = ']'),
+                ' ', ETA(), ' ', FileTransferSpeed()]
+    pbar = ProgressBar(widgets = widgets, maxval = overallLength)
+    pbar.start()
+    for line in fi:
+        urlToGetFile = line[:-1]
+        fileNameToSave = baseDir + urlToGetFile[urlToGetFile.rfind('/')+1:]
+        getSpecialDownload(urlToGetFile, fileNameToSave)
+        cl += 1
+        pbar.update(overallLength / nl * cl)
+    pbar.finish()
+    print('All done!')
+    moreToDoQuery()
+
+#This function is going to handle our special download info for file looping.
+def specialDownloadInfo():
+    fileNameUrls = raw_input('Enter the filename (with path) that contains URLs (Q to quit): ')
+    if fileNameUrls == 'q' or fileNameUrls == 'Q':
+        cleanExit()
+    baseDir = raw_input('Enter the directory path where you want the files saved (Q to quit): ')
+    if baseDir == 'q' or baseDir == 'Q':
+        cleanExit()
+    getOverallLength(fileNameUrls, baseDir)
+
+def regDownloadInfo():
+    urlToGetFile = raw_input('Please enter the download URL (Q to quit): ')
+    if urlToGetFile == 'q' or urlToGetFile == 'Q':
+        cleanExit()
+    fileNameToSave = raw_input('Enter the desired path and filename (Q to quit): ')
+    if fileNameToSave == 'q' or fileNameToSave == 'Q':
+        cleanExit()
+    getRegDownload(urlToGetFile, fileNameToSave)
 
 def fileLoopCheck():
-    specialDownload = raw_input('Do you need to import a file with links?(y/n): ')
-    if specialDownload == 'n':
-        urlToGetFile = raw_input('Please enter the download URL: ')
-        fileNameToSave = raw_input('Enter the desired path and filename: ')
-        getDownload()
-    elif specialDownload == 'y':
-        fileNameUrls = raw_input('Enter the filename (with path) that contains URLs: ')
-        baseDir = raw_input('Enter the directory where you want the files saved: ')
-        # Define how to handle pathing, default to preceding '/'
-        if not baseDir.endswith("/") and baseDir != '':
-            baseDir+="/"
-        # Grab the file and iterate over each line, this is not yet smart enough
-        # to discern between an actual url and erroneous text, so don't have anything
-        # other than links in your input file!
-        fi = fileinput.input(fileNameUrls)
-        nl=0 #numbers of line
-        for line in fi:
-            nl+=1 # iterate over the next line
-        # Re-read, this will be cleaned up later
-        fi = fileinput.input(fileNameUrls) # reset the fileinput : can't reuse it
-        cl=0 # currentline
-        # Progressbar() stuff, wheee!
-        widgets = ['Overall Progress: ', Percentage(), ' ',
-                       Bar(marker='>',left='[',right=']'),
-                       ' ', ETA(), ' ', FileTransferSpeed()]
-        pbar = ProgressBar(widgets=widgets, maxval=overallLength)
-        pbar.start()
-        # Done with the prep work, time to do what the user wants
-        for line in fi:
-            urlToGetFile=line[:-1]
-            fileNameToSave=baseDir+urlToGetFile[urlToGetFile.rfind('/')+1:]
-            getSpecialDownload(urlToGetFile, fileNameToSave)
-            cl+=1
-            pbar.update(overallLength/nl*cl)
-        pbar.finish()
-        print('All done!')
+    specialDownload = raw_input('Do you need to import a file with links?(y/n/q): ')
+    if specialDownload == 'n' or specialDownload == 'N':
+        regDownloadInfo()
+    elif specialDownload == 'y' or specialDownload == 'Y':
+        specialDownloadInfo()
+    elif specialDownload == 'q' or specialDownload == 'Q':
+        cleanExit()
     else:
-        print('There was an error in your response, let\'s try again...')
+        print("There was an error in your response, let's try again...")
         fileLoopCheck()
-# Call start function
-fileLoopCheck()
+
+def main():
+    print("""Hello! I am going to ensure that downloading your files, renaming them,
+             and specifying where to save them, are as simple as possible. Let's get to it!""")
+    print('Be warned! File Looping has been implemented but is experimental.')
+    print('Downloading large groups of files could lead to RAM abuse.')
+    fileLoopCheck()
+
+# Call main function
+main()
