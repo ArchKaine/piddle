@@ -68,7 +68,7 @@ else:
 # A function to provide a clean exit from anywhere in the program
 def cleanExit():
     exitCheck = raw_input("Would you like to exit the program?")
-    if exitCheck != 'n' or exitCheck != 'N'
+    if exitCheck != 'n' and exitCheck != 'N'
         print ("Exiting now!")
         exit(0)
     else:
